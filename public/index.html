@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>IDEAL PAYROLL</title>
+<style>
+:root{
+  --bg:#0f2155;--bg2:#132862;--ink:#0b172e;--ink2:#324766;--ink3:#5b7198;
+  --card:#fff;--muted:#6b7280;--blue:#2563eb;--blue2:#1d4ed8;--line:#e5e7eb;
+  --ok:#16a34a;--warn:#ea580c;--pill:#f1f5f9
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Arial;background:#f7f8fb}
+aside{position:fixed;inset:0 auto 0 0;width:240px;background:linear-gradient(180deg,var(--bg),var(--bg2));color:#fff}
+.brand{display:flex;align-items:center;gap:.6rem;padding:1rem 1.2rem;font-weight:700}
+nav a{display:block;color:#c7d2fe;text-decoration:none;padding:.9rem 1.2rem;border-left:3px solid transparent}
+nav a.active{background:rgba(255,255,255,.06);border-left-color:#8ab4ff;color:#fff}
+.logout{position:fixed;left:0;bottom:0;width:240px;border-top:1px solid rgba(255,255,255,.08);padding:10px 12px}
+.logout button{width:100%;border:0;background:#ef4444;color:#fff;padding:.6rem .9rem;border-radius:10px;cursor:pointer}
+main{margin-left:240px;padding:22px;min-height:100vh}
+.h1{font-size:28px;font-weight:800;color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+.row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+.col-2{grid-column:span 2}.col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-6{grid-column:span 6}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
+label{display:block;font-size:12px;color:var(--ink3);margin:4px 0}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+input[readonly]{background:#f8fafc}
+.btn{border:0;background:var(--blue);color:#fff;padding:.6rem .9rem;border-radius:10px;cursor:pointer}
+.btn.secondary{background:#e2e8f0;color:#0b1220}
+.btn.ghost{background:#f4f6fb;color:#1f2937}
+.btn.warn{background:#ea580c;color:#fff}
+.btn:disabled{opacity:.55}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{border-bottom:1px solid var(--line);padding:10px}
+.table th{font-size:12px;color:var(--ink3);text-transform:uppercase;text-align:left}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--pill);padding:2px 8px;border-radius:999px;font-size:12px;color:#334155}
+.pill{background:#ecfeff;color:#0369a1}
+.muted{color:#6b7280}
+.kv{font-variant-numeric:tabular-nums}
+.right{float:right}
+.notice{font-size:12px;color:#6b7280}
+#loginWrap{position:fixed;inset:0;background:linear-gradient(180deg,#0f2155,#27439a);display:flex;align-items:center;justify-content:center;z-index:9999}
+#loginBox{width:min(420px,92vw);background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.22);padding:22px;border:1px solid var(--line)}
+#loginBox h2{margin:0 0 10px 0}
+#loginBox .small{font-size:12px;color:#6b7280;margin-bottom:14px}
+.setline{border-top:1px dashed var(--line);margin:14px 0}
+.status-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
+.status-P{background:#dcfce7;color:#166534}
+.status-A{background:#fee2e2;color:#991b1b}
+.status-WO{background:#e0e7ff;color:#3730a3}
+@media (max-width:1000px){
+  aside{position:static;width:auto}
+  main{margin-left:0}
+  .row{grid-template-columns:repeat(6,1fr)}
+  .col-8{grid-column:span 6}.col-6{grid-column:span 6}.col-4{grid-column:span 6}.col-3{grid-column:span 3}.col-2{grid-column:span 3}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginWrap" style="display:none">
+  <div id="loginBox">
+    <h2>IDEAL PAYROLL — Login</h2>
+    <div class="small">First run creates a default user: <b>admin</b> / <b>ideal@123</b>. You can change it later in <i>Settings → Users</i>.</div>
+    <div class="row">
+      <div class="col-6">
+        <label>User ID</label>
+        <input id="lg_user" placeholder="admin" autocomplete="username"/>
+      </div>
+      <div class="col-6">
+        <label>Password</label>
+        <input id="lg_pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <div class="col-12">
+        <div id="loginError" style="color:#ef4444;height:16px;font-size:12px"></div>
+        <button class="btn" id="btnLogin">Login</button>
+      </div>
+    </div>
+    <div class="setline"></div>
+    <div class="small">Tip: For production, move authentication to the server. This in-browser login is meant for local use.</div>
+  </div>
+</div>
+
+<aside>
+  <div class="brand">IDEAL PAYROLL</div>
+  <nav>
+    <a href="#emp" id="nav-emp" class="active">Employee</a>
+    <a href="#ctc" id="nav-ctc">Salary Structure</a>
+    <a href="#att" id="nav-att">Attendance Log</a>
+    <a href="#pay" id="nav-pay">Payroll Entry</a>
+    <a href="#set" id="nav-set">Settings</a>
+  </nav>
+  <div class="logout"><button id="btnLogout">Logout</button></div>
+</aside>
+
+<main>
+  <div class="h1">Dashboard</div>
+
+  <!-- EMPLOYEES -->
+  <section id="sec-emp" class="card">
+    <div class="row">
+      <div class="col-8">
+        <h3>Employees</h3>
+        <div class="notice">Tip: click a row to edit, or “Open” to set the current employee for other tabs.</div>
+      </div>
+      <div class="col-4" style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+        <button class="btn" id="btnNewEmp">+ New</button>
+        <button class="btn ghost" id="btnDownloadTpl">CSV Template</button>
+        <button class="btn secondary" id="btnExportCSV">Export CSV</button>
+        <button class="btn secondary" id="btnExportJSON">Export JSON</button>
+        <button class="btn" id="btnImport">Import</button>
+        <input type="file" id="fileImport" accept=".csv,.json" style="display:none">
+      </div>
+    </div>
+    <script>
+    /* ===== EMPLOYEE IMPORT / EXPORT ===== */
+    function toCSVRow(arr){ return arr.map(v=>{ const s=(v??'').toString(); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(','); }
+    function parseCSV(text){ const rows=[]; let i=0, field='', row=[], inQ=false;
+      while(i<text.length){ const c=text[i];
+        if(inQ){ if(c==='\"'){ if(text[i+1]==='\"'){field+='\"'; i++;} else inQ=false; } else field+=c; }
+        else{ if(c==='\"') inQ=true; else if(c===','){row.push(field); field='';}
+          else if(c==='\r'){} else if(c==='\n'){row.push(field); rows.push(row); row=[]; field='';}
+          else field+=c; } i++; }
+      if(field.length||row.length){ row.push(field); rows.push(row); }
+      return rows; }
+    const EMP_HEADER_MAP={
+      'emp id':'emp_id','employee id':'emp_id','id':'emp_id',
+      'attendance code':'dev_code','device code':'dev_code','code':'dev_code',
+      'first name':'first_name','firstname':'first_name','middle name':'mid_name','middlename':'mid_name',
+      'last name':'last_name','lastname':'last_name','surname':'last_name','full name':'__ignore__',
+      'dob':'dob','date of birth':'dob','birth date':'dob','gender':'gender','marital':'marital','marital status':'marital',
+      'joining date':'doj','doj':'doj','department':'dept','dept':'dept','designation':'desig','desig':'desig','title':'desig',
+      'employment type':'etype','etype':'etype','type':'etype','email':'email','mail':'email',
+      'phone':'phone','contact':'phone','mobile':'phone','address':'addr','addr':'addr','bank':'bank','bank name':'bank',
+      'account':'acc','account no':'acc','bank account number':'acc','ifsc':'ifsc','swift':'ifsc','ifsc / swift code':'ifsc',
+      'pan':'pan','shift start':'shift_start','shift end':'shift_end','grace minutes':'grace',
+      'weekly off':'weekoff','weekoff':'weekoff','weekly offs':'weekoff','week off':'weekoff'
+    };
+    function normalizeImportedRow(obj){
+      return {
+        emp_id:(obj.emp_id||'').trim(), dev_code:(obj.dev_code||'').trim(),
+        first_name:(obj.first_name||'').trim(), mid_name:(obj.mid_name||'').trim(), last_name:(obj.last_name||'').trim(),
+        dob:(obj.dob||'').trim(),
+        gender: obj.gender && /^(female|f)$/i.test(obj.gender) ? 'Female' :
+                obj.gender && /^(other|o)$/i.test(obj.gender) ? 'Other' : 'Male',
+        marital: obj.marital && /^married/i.test(obj.marital) ? 'Married' : 'Single',
+        doj:(obj.doj||'').trim(), dept:(obj.dept||'').trim(), desig:(obj.desig||'').trim(),
+        etype: obj.etype && /^contract/i.test(obj.etype) ? 'Contract' : 'Permanent',
+        email:(obj.email||'').trim(), phone:(obj.phone||'').trim(), addr:(obj.addr||'').trim(),
+        bank:(obj.bank||'').trim(), acc:(obj.acc||'').trim(), ifsc:(obj.ifsc||'').trim(), pan:(obj.pan||'').trim(),
+        shift_start:(obj.shift_start||'09:00').trim(), shift_end:(obj.shift_end||'17:30').trim(),
+        grace:Number(obj.grace||0)||0,
+        weekoff:Array.isArray(obj.weekoff)?obj.weekoff:String(obj.weekoff||'').split(/[,\|;/\s]+/).filter(Boolean)
+      };
+    }
+    function exportEmployeesCSV(){
+      const headers=['Emp ID','Attendance Code','First Name','Middle Name','Last Name','DOB','Gender','Marital Status','Joining Date','Department','Designation','Employment Type','Email','Contact','Address','Bank Name','Bank Account Number','IFSC / SWIFT Code','PAN','Shift Start','Shift End','Grace Minutes','Weekly Off'];
+      const m=getMaster(); const rows=[toCSVRow(headers)];
+      Object.values(m).forEach(r=>rows.push(toCSVRow([r.emp_id,r.dev_code||'',r.first_name||'',r.mid_name||'',r.last_name||'',r.dob||'',r.gender||'Male',r.marital||'Single',r.doj||'',r.dept||'',r.desig||'',r.etype||'Permanent',r.email||'',r.phone||'',r.addr||'',r.bank||'',r.acc||'',r.ifsc||'',r.pan||'',r.shift_start||'09:00',r.shift_end||'17:30',r.grace??0,(r.weekoff||[]).join(' ')])));
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'})); a.download='employees.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+    function exportEmployeesJSON(){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(getMaster(),null,2)],{type:'application/json'})); a.download='employees.json'; a.click(); URL.revokeObjectURL(a.href); }
+    function downloadCSVTemplate(){
+      const headers=['Emp ID','Attendance Code','First Name','Middle Name','Last Name','DOB','Gender','Marital Status','Joining Date','Department','Designation','Employment Type','Email','Contact','Address','Bank Name','Bank Account Number','IFSC / SWIFT Code','PAN','Shift Start','Shift End','Grace Minutes','Weekly Off'];
+      const sample=['E001','1001','Amit','','Shah','1992-04-10','Male','Single','2023-06-01','Production','Operator','Permanent','amit@example.com','9999999999','Ahmedabad','HDFC','1234567890','HDFC0001234','ABCDE1234F','09:00','17:30','0','Sun'];
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([[toCSVRow(headers),toCSVRow(sample)].join('\n')],{type:'text/csv;charset=utf-8;'})); a.download='employees_template.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+    function importEmployeesFromFile(file){
+      const isCSV=/\.csv$/i.test(file.name), isJSON=/\.json$/i.test(file.name); if(!isCSV&&!isJSON){ alert('Please choose a .csv or .json file'); return; }
+      const reader=new FileReader();
+      reader.onload=()=>{ let imported=[]; try{
+          if(isJSON){ const data=JSON.parse(reader.result); imported=Array.isArray(data)?data:Object.values(data); }
+          else{ const rows=parseCSV(reader.result); if(!rows.length){alert('Empty CSV');return;}
+            const header=rows[0].map(h=>String(h||'').trim().toLowerCase());
+            const mapIdx=header.map(h=>EMP_HEADER_MAP[h]||h.replace(/\s+/g,'_')); if(!mapIdx.includes('emp_id')){ alert('CSV must have "Emp ID" column'); return; }
+            for(let i=1;i<rows.length;i++){ const r=rows[i]; if(r.length===1&&r[0].trim()==='') continue; const obj={}; mapIdx.forEach((key,j)=>{ if(key&&key!=='__ignore__') obj[key]=r[j]??''; }); imported.push(obj); }
+          }
+        }catch(e){ console.error(e); alert('Could not parse file.'); return; }
+        const m=getMaster(); let added=0,updated=0,skipped=0,missing=0;
+        imported.forEach(raw=>{ const row=normalizeImportedRow(raw); if(!row.emp_id){missing++;return;} if(!row.first_name||!row.last_name){skipped++;return;} if(!row.dept||!row.desig){skipped++;return;} if(m[row.emp_id]) updated++; else added++; m[row.emp_id]=row; });
+        setMaster(m); alert(`Import complete.\nAdded: ${added}\nUpdated: ${updated}\nSkipped (failed validation): ${skipped}\nMissing Emp ID: ${missing}\nTotal now: ${Object.keys(m).length}`);
+      }; reader.readAsText(file);
+    }
+    document.getElementById('btnExportCSV').onclick=exportEmployeesCSV;
+    document.getElementById('btnExportJSON').onclick=exportEmployeesJSON;
+    document.getElementById('btnDownloadTpl').onclick=downloadCSVTemplate;
+    document.getElementById('btnImport').onclick=()=>document.getElementById('fileImport').click();
+    document.getElementById('fileImport').addEventListener('change',(e)=>{const f=e.target.files[0]; if(f) importEmployeesFromFile(f); e.target.value='';});
+    </script>
+
+    <div class="card">
+      <table class="table" id="tblEmp">
+        <thead><tr>
+          <th style="width:120px">Emp ID</th><th>Name</th><th style="width:160px">Attendance Code</th>
+          <th style="width:140px">Dept</th><th style="width:160px">Designation</th>
+          <th style="width:160px">Shift</th><th style="width:90px">Weekoff</th><th style="width:150px;text-align:right">Actions</th>
+        </tr></thead>
+        <tbody id="empBody"></tbody>
+      </table>
+    </div>
+
+    <h3>Employee Information</h3>
+    <div class="notice">Saved to <code>ideal.empMaster.v2</code>. Attendance fetch is blocked if employee is not in Master.</div>
+
+    <div class="row">
+      <div class="col-3"><label>Employee ID *</label><input id="emp_id" maxlength="20"/></div>
+      <div class="col-3"><label>Attendance Code (device)</label><input id="dev_code" placeholder="EnrollNo / UserId / CardNo"/></div>
+      <div class="col-3"><label>First Name *</label><input id="first_name"/></div>
+      <div class="col-3"><label>Middle Name</label><input id="mid_name"/></div>
+
+      <div class="col-6"><label>Full Name (auto)</label><input id="full_auto" readonly/></div>
+      <div class="col-3"><label>Last Name *</label><input id="last_name"/></div>
+      <div class="col-3"><label>Date of Birth</label><input id="dob" type="date"/></div>
+
+      <div class="col-3"><label>Gender</label>
+        <select id="gender"><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+      <div class="col-3"><label>Marital Status</label>
+        <select id="marital"><option>Single</option><option>Married</option></select>
+      </div>
+      <div class="col-3"><label>Joining Date *</label><input id="doj" type="date"/></div>
+      <div class="col-3"><label>Department *</label><input id="dept"/></div>
+
+      <div class="col-3"><label>Designation *</label><input id="desig"/></div>
+      <div class="col-3"><label>Employment Type</label>
+        <select id="etype"><option>Permanent</option><option>Contract</option></select>
+      </div>
+      <div class="col-3"><label>Email</label><input id="email"/></div>
+      <div class="col-3"><label>Contact</label><input id="phone"/></div>
+
+      <div class="col-12"><label>Address</label><input id="addr"/></div>
+
+      <div class="col-3"><label>Bank Name</label><input id="bank"/></div>
+      <div class="col-3"><label>Bank Account Number</label><input id="acc"/></div>
+      <div class="col-3"><label>IFSC / SWIFT Code</label><input id="ifsc"/></div>
+      <div class="col-3"><label>PAN</label><input id="pan"/></div>
+
+      <div class="col-3"><label>Shift Start (HH:MM)</label><input id="shift_start" placeholder="09:00"/></div>
+      <div class="col-3"><label>Shift End (HH:MM)</label><input id="shift_end" placeholder="17:30"/></div>
+      <div class="col-3"><label>Grace Minutes</label><input id="grace" type="number" value="0"/></div>
+      <div class="col-3">
+        <label>Weekly Off (select one or more)</label>
+        <div>
+          <label><input type="checkbox" class="wday" value="Sun"/> Sun</label>
+          <label><input type="checkbox" class="wday" value="Mon"/> Mon</label>
+          <label><input type="checkbox" class="wday" value="Tue"/> Tue</label>
+          <label><input type="checkbox" class="wday" value="Wed"/> Wed</label>
+          <label><input type="checkbox" class="wday" value="Thu"/> Thu</label>
+          <label><input type="checkbox" class="wday" value="Fri"/> Fri</label>
+          <label><input type="checkbox" class="wday" value="Sat"/> Sat</label>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <button id="btnSaveEmp" class="btn">Save Employee</button>
+        <button id="btnDeleteEmp" class="btn ghost">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTC -->
+  <section id="sec-ctc" class="card" style="display:none">
+    <h3>Salary Structure <span class="badge">Separate store from Employee Master.</span></h3>
+    <div class="row">
+      <div class="col-4"><label>Employee ID</label><select id="ctcEmp"></select></div>
+      <div class="col-8"><label>Structure Name</label><input id="ctcName" placeholder="e.g., Default 2025"/></div>
+    </div>
+    <div class="card">
+      <table class="table" id="tblCTC">
+        <thead><tr><th>Particulars</th><th style="width:200px">Monthly (₹)</th><th style="width:200px">Yearly (₹)</th></tr></thead>
+        <tbody id="ctcBody"></tbody>
+        <tfoot>
+          <tr><th>Gross Amount (A)</th><th class="kv" id="ctcGrossM">0.00</th><th class="kv" id="ctcGrossY">0.00</th></tr>
+          <tr><th>Total Deduction (C)</th><th class="kv" id="ctcDedM">0.00</th><th class="kv" id="ctcDedY">0.00</th></tr>
+          <tr><th>Total Benefit (B)</th><th class="kv" id="ctcBenM">0.00</th><th class="kv" id="ctcBenY">0.00</th></tr>
+          <tr><th>Grand Total CTC (A + B)</th><th class="kv" id="ctcTotM">0.00</th><th class="kv" id="ctcTotY">0.00</th></tr>
+          <tr><th>Net Take Home (A − C)</th><th class="kv" id="ctcNTHM">0.00</th><th class="kv" id="ctcNTHY">0.00</th></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div>
+      <button class="btn" id="btnSaveCTC">Save Structure</button>
+      <span class="notice" id="ctcNotice"></span>
+    </div>
+  </section>
+
+  <!-- ATTENDANCE -->
+  <section id="sec-att" class="card" style="display:none">
+    <h3>Attendance Log (Daily) <span class="badge pill" id="rtBadge">Auto-sync every 1s</span></h3>
+    <div class="notice">All registered employees are auto-synced. No manual code entry. Use filters to find people quickly. Date format: dd-MMM-yyyy.</div>
+    <div class="row">
+      <div class="col-3"><label>Period (YYYY-MM)</label><input id="attPeriod" placeholder="2025-09"/></div>
+      <div class="col-3"><label>View</label>
+        <select id="attView"><option value="ALL">All Employees</option></select>
+      </div>
+      <div class="col-6"><label>Quick Filter (Emp ID / Name / Code)</label><input id="attFilter" placeholder="Type to filter rows"/></div>
+    </div>
+
+    <div class="row" style="align-items:center; margin:8px 0;">
+      <div class="col-3">
+        <label>Page Size</label>
+        <select id="attPageSize">
+          <option value="10" selected>10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="500">500</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label>&nbsp;</label>
+        <div>
+          <button class="btn secondary" id="btnPrev">Prev</button>
+          <button class="btn secondary" id="btnNext">Next</button>
+          <button class="btn" id="btnRefresh">Refresh Now</button>
+        </div>
+      </div>
+      <div class="col-6" style="display:flex;gap:8px;align-items:flex-end;justify-content:flex-end;">
+        <button class="btn ghost" id="btnExportAtt">Export CSV (Filtered)</button>
+        <button class="btn ghost" id="btnExportPage">Export Current Page</button>
+      </div>
+    </div>
+
+    <!-- date range -->
+    <div class="row" style="margin-top:10px;">
+      <div class="col-3"><label>From Date</label><input type="date" id="attFrom"></div>
+      <div class="col-3"><label>To Date</label><input type="date" id="attTo"></div>
+      <div class="col-6" style="display:flex;gap:8px;align-items:flex-end;justify-content:flex-end;">
+        <button class="btn ghost" id="btnExportRange">Export CSV (Range)</button>
+        <button class="btn ghost" id="btnExportRangePage">Export Current Page</button>
+        <button class="btn ghost" id="btnExportWorkDuration">Export Work Duration Report</button>
+      </div>
+    </div>
+
+    <div class="notice" id="attExplain"></div>
+    <div class="card">
+      <table class="table" id="tblAtt">
+        <thead>
+          <tr><th>Emp ID</th><th>Attendance Code</th><th>Name</th><th>Date</th><th>Status</th><th>IN</th><th>OUT</th><th>Late (min)</th><th>Early (min)</th><th>OT (HH:MM)</th><th>Device IN</th><th>Device OUT</th></tr>
+        </thead>
+        <tbody id="attBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PAY -->
+  <section id="sec-pay" class="card" style="display:none">
+    <h3>Payroll Entry</h3>
+    <div class="notice">Reads totals from Attendance tab for the selected employee & month.</div>
+    <div id="payShell" class="row">
+      <div class="col-3"><label>Total Month Days</label><input id="pay_month" value="30" readonly/></div>
+      <div class="col-3"><label>Working Days</label><input id="pay_work" value="0" readonly/></div>
+      <div class="col-3"><label>Present Days</label><input id="pay_present" value="0" readonly/></div>
+      <div class="col-3"><label>Paid Leave</label><input id="pay_pl" value="0" readonly/></div>
+
+      <div class="col-3"><label>LOP (Unpaid)</label><input id="pay_lop" value="0" readonly/></div>
+      <div class="col-3"><label>Late Minutes</label><input id="pay_late" value="0" readonly/></div>
+      <div class="col-3"><label>Early Minutes</label><input id="pay_early" value="0" readonly/></div>
+      <div class="col-3"><label>OT (HH:MM)</label><input id="pay_ot" value="00:00" readonly/></div>
+
+      <div class="col-3"><label>Gross (from CTC)</label><input id="pay_gross" value="0.00" readonly/></div>
+      <div class="col-3"><label>Total Deductions</label><input id="pay_ded" value="0.00" readonly/></div>
+      <div class="col-3"><label>Net Salary</label><input id="pay_net" value="0.00" readonly/></div>
+      <div class="col-3"><label>Payment Mode</label><select id="pay_mode"><option>Bank</option><option>Cash</option></select></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="sec-set" class="card" style="display:none">
+    <h3>Settings</h3>
+    <div class="row">
+      <div class="col-6">
+        <div class="card">
+          <h4>Attendance Source</h4>
+          <div class="row">
+            <div class="col-12"><label>SmartOffice API URL</label>
+              <input id="set_api" placeholder="http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs"/>
+            </div>
+            <div class="col-6"><label>API Key</label><input id="set_key" placeholder="441011112426"/></div>
+            <div class="col-3"><label>Real-time Mode</label>
+              <select id="set_rt"><option value="1">ON</option><option value="0">OFF</option></select>
+            </div>
+            <div class="col-3"><label>Sync Interval (sec)</label><input id="set_iv" type="number" min="1" value="1"/></div>
+            <div class="col-12">
+              <button class="btn" id="btnSaveSettings">Save Settings</button>
+              <span class="notice" id="setNote"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card">
+          <h4>Users</h4>
+          <div class="row">
+            <div class="col-4"><label>User ID</label><input id="usr_id" placeholder="newuser"/></div>
+            <div class="col-4"><label>Password</label><input id="usr_pw" type="password" placeholder="••••••"/></div>
+            <div class="col-4"><label>&nbsp;</label><button class="btn" id="btnAddUser">Add / Update User</button></div>
+            <div class="col-12"><table class="table" id="tblUsers"><thead><tr><th>User</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="notice">Passwords are hashed and stored locally in this browser. Use a server for stronger security.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ---------------- Utilities + Storage ---------------- */
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const store=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const read =(k,d)=>JSON.parse(localStorage.getItem(k)||JSON.stringify(d));
+const fmtDMY=d=>new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(d).replace(' ','-');
+const pad2=n=>String(n).padStart(2,'0');
+const toHM=m=>`${pad2(Math.floor(m/60))}:${pad2(Math.floor(m%60))}`;
+const fromHM=s=>{const [h,m]=String(s||'0:0').split(':').map(x=>+x||0);return h*60+m;};
+const thisMonth=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`};
+const dayName=i=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i];
+// Local YYYY-MM-DD (no timezone surprises) — defined early so everyone can use it
+function ymdLocal(dt){return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;}
+
+const KEY_MASTER='ideal.empMaster.v2', KEY_CTC='ideal.ctc.v1', KEY_LAST='ideal.last.sel';
+const KEY_SET='ideal.settings.v1', KEY_USERS='ideal.users.v1', KEY_SESS='ideal.session.user';
+
+/* Name helper */
+function nameFromMaster(emp){ return [emp.first_name||'', emp.mid_name||'', emp.last_name||''].join(' ').replace(/\s+/g,' ').trim(); }
+
+/* ---------------- Auth ---------------- */
+async function sha256(t){const b=new TextEncoder().encode(t);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+function ensureDefaultUser(){const u=read(KEY_USERS,null);if(u)return;(async()=>{store(KEY_USERS,{admin:await sha256('ideal@123')});})();}
+async function tryLogin(user,pass){const u=read(KEY_USERS,{});if(!u[user])return false;return (await sha256(pass))===u[user];}
+function showLoginIfNeeded(){if(!read(KEY_SESS,null)) $('#loginWrap').style.display='flex';}
+function doLogout(){localStorage.removeItem(KEY_SESS);$('#loginWrap').style.display='flex';}
+$('#btnLogin').onclick=async()=>{const u=$('#lg_user').value.trim(),p=$('#lg_pass').value;$('#loginError').textContent='';if(!u||!p){$('#loginError').textContent='Enter user & password.';return;} if(await tryLogin(u,p)){store(KEY_SESS,{u,ts:Date.now()});$('#loginWrap').style.display='none';startRealtimeSync();}else{$('#loginError').textContent='Invalid credentials.';}}; $('#btnLogout').onclick=doLogout;
+
+/* ---------------- Navigation ---------------- */
+function show(hash){for(const id of ['emp','ctc','att','pay','set']){$('#nav-'+id).classList.toggle('active',hash===id);$('#sec-'+id).style.display=hash===id?'':'none';} store(KEY_LAST,{...(read(KEY_LAST,{})),hash});}
+window.addEventListener('hashchange',()=>show((location.hash||'#emp').slice(1)));
+
+/* ---------------- Employee Master ---------------- */
+function getMaster(){return read(KEY_MASTER,{});} 
+function setMaster(m){store(KEY_MASTER,m);renderEmpTable();fillCTCDropdown();buildEmpQueue();}
+function renderEmpTable(){
+  const m=getMaster(), body=$('#empBody');
+  const rows=Object.values(m).sort((a,b)=>a.emp_id.localeCompare(b.emp_id));
+  body.innerHTML=rows.length?rows.map(r=>`<tr data-id="${r.emp_id}">
+    <td>${r.emp_id}</td><td>${r.first_name} ${r.mid_name?r.mid_name+' ':''}${r.last_name}</td>
+    <td>${r.dev_code||''}</td><td>${r.dept||''}</td><td>${r.desig||''}</td>
+    <td>${r.shift_start||''}-${r.shift_end||''}</td><td>${(r.weekoff||[]).join(', ')||'—'}</td>
+    <td style="text-align:right"><button class="btn secondary btn-edit" data-id="${r.emp_id}">Edit</button>
+    <button class="btn ghost btn-open" data-id="${r.emp_id}">Open</button></td></tr>`).join('')
+    :`<tr><td colspan="8" class="muted">No employees yet. Click “+ New Employee”.</td></tr>`;
+  body.querySelectorAll('.btn-edit').forEach(b=>b.onclick=()=>editEmp(b.dataset.id));
+  body.querySelectorAll('.btn-open').forEach(b=>b.onclick=()=>selectCurrent(b.dataset.id));
+}
+function emptyEmpForm(){['#emp_id','#dev_code','#first_name','#mid_name','#last_name','#dob','#dept','#desig','#email','#phone','#addr','#bank','#acc','#ifsc','#pan'].forEach(s=>$(s).value='');$('#gender').value='Male';$('#marital').value='Single';$('#etype').value='Permanent';$('#shift_start').value='09:00';$('#shift_end').value='17:30';$('#grace').value=0;$$('.wday').forEach(c=>c.checked=false);$('#full_auto').value='';}
+function editEmp(id){
+  const r=getMaster()[id]; if(!r) return;
+  Object.entries({emp_id:r.emp_id,dev_code:r.dev_code||'',first_name:r.first_name||'',mid_name:r.mid_name||'',last_name:r.last_name||'',dob:r.dob||'',gender:r.gender||'Male',marital:r.marital||'Single',doj:r.doj||'',dept:r.dept||'',desig:r.desig||'',etype:r.etype||'Permanent',email:r.email||'',phone:r.phone||'',addr:r.addr||'',bank:r.bank||'',acc:r.acc||'',ifsc:r.ifsc||'',pan:r.pan||'',shift_start:r.shift_start||'',shift_end:r.shift_end||'',grace:r.grace||0})
+    .forEach(([k,v])=>{const el=document.getElementById(k); if(el) el.value=v;});
+  $$('.wday').forEach(c=>c.checked=(r.weekoff||[]).includes(c.value));
+  updateFullName();
+}
+function updateFullName(){$('#full_auto').value=`${$('#first_name').value||''} ${$('#mid_name').value||''} ${$('#last_name').value||''}`.replace(/\s+/g,' ').trim();}
+['#first_name','#mid_name','#last_name'].forEach(s=>$(s).addEventListener('input',updateFullName));
+function selectCurrent(id){const m=getMaster();if(!m[id])return alert('Employee not found.');store(KEY_LAST,{...(read(KEY_LAST,{})),hash:'att',emp:id});location.hash='#att';}
+$('#btnNewEmp').onclick=()=>{emptyEmpForm();$('#emp_id').focus();};
+$('#btnSaveEmp').onclick=()=>{const emp_id=$('#emp_id').value.trim();if(!emp_id)return alert('Employee ID is required.');
+  const row={emp_id,dev_code:$('#dev_code').value.trim(),first_name:$('#first_name').value.trim(),mid_name:$('#mid_name').value.trim(),last_name:$('#last_name').value.trim(),dob:$('#dob').value,gender:$('#gender').value,marital:$('#marital').value,doj:$('#doj').value,dept:$('#dept').value.trim(),desig:$('#desig').value.trim(),etype:$('#etype').value,email:$('#email').value.trim(),phone:$('#phone').value.trim(),addr:$('#addr').value.trim(),bank:$('#bank').value.trim(),acc:$('#acc').value.trim(),ifsc:$('#ifsc').value.trim(),pan:$('#pan').value.trim(),shift_start:$('#shift_start').value.trim(),shift_end:$('#shift_end').value.trim(),grace:+$('#grace').value||0,weekoff:$$('.wday:checked').map(c=>c.value)};
+  const m=getMaster(); m[emp_id]=row; setMaster(m); updateFullName(); fillCTCDropdown(); alert('Employee saved.');
+};
+$('#btnDeleteEmp').onclick=()=>{const id=$('#emp_id').value.trim();if(!id)return;if(!confirm(`Delete ${id}?`))return;const m=getMaster();delete m[id];setMaster(m);emptyEmpForm();alert('Deleted.');};
+function fillCTCDropdown(){const sel=$('#ctcEmp');const m=getMaster();sel.innerHTML=`<option value="">— Select —</option>`+Object.values(m).sort((a,b)=>a.emp_id.localeCompare(b.emp_id)).map(r=>`<option>${r.emp_id}</option>`).join('');}
+renderEmpTable();fillCTCDropdown();
+
+/* ---------------- CTC ---------------- */
+const CTC_LINES=[["Direct Benefit",null],["Basic",0],["HRA",0],["Conveyance Allowance",0],["Attendance Allowance",0],["Education Allowance",0],["Special Allowance",0],["Washing Allowance",0],["Deduction",null],["Professional Tax",0],["ESIC Contribution Employee 0.75%",0],["PF Employee Contribution 12%",0],["Indirect Benefit",null],["PF Employer Contribution 12%",0],["ESIC Contribution Employer 3.25%",0],["Gratuity (4.81% of Basic)",0],["Performance Inc. Pay (D)",0],["Retention Amount (E)",0],["Performance Vari. Pay (F)",0]];
+function renderCTCGrid(vals={}){const body=$('#ctcBody');body.innerHTML='';CTC_LINES.forEach(([name,def])=>{const isHdr=def===null;const tr=document.createElement('tr');const th=document.createElement('th');th.textContent=name;if(isHdr){th.colSpan=3;tr.appendChild(th);}else{const tdM=document.createElement('td');const tdY=document.createElement('td');tdM.innerHTML=`<input class="ctcM kv" data-name="${name}" value="${Number((vals[name]?.m ?? def)).toFixed(2)}">`;tdY.className='kv';tdY.textContent=(vals[name]?.y ?? ((vals[name]?.m??def)*12)).toFixed(2);tr.appendChild(th);tr.appendChild(tdM);tr.appendChild(tdY);}body.appendChild(tr);});recalcCTC();body.oninput=e=>{if(!e.target.classList.contains('ctcM'))return;const m=parseFloat(e.target.value)||0;e.target.closest('tr').querySelector('td+td').textContent=(m*12).toFixed(2);recalcCTC();}}
+renderCTCGrid();
+function recalcCTC(){const rows=[...$('#ctcBody').querySelectorAll('tr')];let gross=0,ded=0,ben=0;let section='Direct';rows.forEach(r=>{const th=r.querySelector('th');const hdr=!r.querySelector('input');if(hdr){section=/Deduction/.test(th.textContent)?'Deduction':/Indirect/.test(th.textContent)?'Indirect':'Direct';return;}const m=parseFloat(r.querySelector('input').value)||0;if(section==='Direct')gross+=m;else if(section==='Deduction')ded+=m;else ben+=m;});$('#ctcGrossM').textContent=gross.toFixed(2);$('#ctcGrossY').textContent=(gross*12).toFixed(2);$('#ctcDedM').textContent=ded.toFixed(2);$('#ctcDedY').textContent=(ded*12).toFixed(2);$('#ctcBenM').textContent=ben.toFixed(2);$('#ctcBenY').textContent=(ben*12).toFixed(2);$('#ctcTotM').textContent=(gross+ben).toFixed(2);$('#ctcTotY').textContent=((gross+ben)*12).toFixed(2);$('#ctcNTHM').textContent=(gross-ded).toFixed(2);$('#ctcNTHY').textContent=((gross-ded)*12).toFixed(2);}
+$('#btnSaveCTC').onclick=()=>{const emp=$('#ctcEmp').value;if(!emp)return alert('Choose an Employee.');const name=$('#ctcName').value.trim()||'Default';const vals={};$('#ctcBody').querySelectorAll('tr').forEach(r=>{const inp=r.querySelector('input');if(!inp)return;const nm=inp.dataset.name;const m=parseFloat(inp.value)||0;vals[nm]={m,y:m*12};});const bag=read(KEY_CTC,{});bag[emp]=bag[emp]||{};bag[emp][name]=vals;store(KEY_CTC,bag);$('#ctcNotice').textContent=`Saved as "${name}" for ${emp}.`;};
+
+/* ---------------- Settings ---------------- */
+function getSettings(){const d=read(KEY_SET,null);if(d)return d;const def={api:'http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs',key:'441011112426',realtime:true,interval:1};store(KEY_SET,def);return def;}
+function renderSettings(){const s=getSettings();$('#set_api').value=s.api||'';$('#set_key').value=s.key||'';$('#set_rt').value=s.realtime?'1':'0';$('#set_iv').value=s.interval||1;$('#rtBadge').textContent=s.realtime?`Auto-sync every ${s.interval||1}s`:'Auto-sync OFF';}
+$('#btnSaveSettings').onclick=()=>{const s={api:$('#set_api').value.trim(),key:$('#set_key').value.trim(),realtime:$('#set_rt').value==='1',interval:Math.max(1,parseInt($('#set_iv').value||'1'))};store(KEY_SET,s);$('#setNote').textContent='Saved.';renderSettings();restartRealtimeSync();};
+
+/* ---------------- Attendance (SmartOffice) ---------------- */
+function normalizeSmartofficeRows(list){
+  return list.map(x=>{
+    const when=x.LogDate||x.LogDateTime||x.PunchTime||x.DateTime||x.LogDateUTC||x.Logdate;
+    const device=x.SerialNumber||x.DeviceSN||x.SerialNo||x.DeviceName||x.Device||x.Terminal;
+    const dirRaw=x.PunchDirection||x.AttDirection||x.Direction||x.Punch||x.InOut||x.DirectionType;
+    const dir=String(dirRaw||'').toLowerCase();
+    return {
+      LogDate:when, SerialNumber:device, PunchDirection:dir.includes('out')?'out':'in',
+      EmployeeCode:x.EmployeeCode||x.EmpCode||x.UserID||x.Code||x.AttendanceCode,
+      EmpCode:x.EmpCode, EDeviceCode:x.EDeviceCode, AttendanceCode:x.AttendanceCode, DeviceUserId:x.DeviceUserId,
+      EmployeeName:x.EmployeeName||x.employeeName
+    };
+  }).filter(r=>r.LogDate);
+}
+function filterRowsByCode(rows, attCode){
+  const codeU=String(attCode||'').toUpperCase();
+  return rows.filter(r=>[
+    r.EmployeeCode, r.EmpCode, r.EDeviceCode, r.AttendanceCode, r.DeviceUserId, r.UserID, r.EmployeeName
+  ].some(v=>String(v||'').toUpperCase()===codeU));
+}
+
+let LAST_ATT_METHOD="";
+
+/* GET first; fallbacks if needed */
+async function smartofficePaged(payload){
+  const s=getSettings(); const PAGE_SIZE=1000; let page=1,out=[];
+  async function tryGET(obj){ const qs=new URLSearchParams(obj).toString(); const url=s.api+(s.api.includes('?')?'&':'?')+qs; LAST_ATT_METHOD='GET'; const r=await fetch(url,{method:'GET'}); if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.json(); }
+  async function tryPOST_FORM(obj){ LAST_ATT_METHOD='POST form'; const r=await fetch(s.api,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(obj)}); if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.json(); }
+  async function tryPOST_JSON(obj){ LAST_ATT_METHOD='POST json'; const r=await fetch(s.api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}); if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.json(); }
+  while(true){
+    const body={...payload, PageNumber:page, PageSize:PAGE_SIZE};
+    let json;
+    try{ json=await tryGET(body); }
+    catch(e1){ try{ json=await tryPOST_FORM(body); } catch(e2){ try{ json=await tryPOST_JSON(body); } catch(e3){ throw new Error(`GET(${e1.message}) ➜ POST form(${e2.message}) ➜ POST json(${e3.message})`);} } }
+    const raw=json?.Data ?? json?.data ?? json ?? [];
+    const items=normalizeSmartofficeRows(raw);
+    out.push(...items);
+    const hasMore=(json?.Pagination?.HasMore===true)||(json?.Pagination?.TotalPages && page<json.Pagination.TotalPages)||(items.length===PAGE_SIZE);
+    if(!hasMore) break; page++;
+  }
+  return out;
+}
+
+async function fetchBiometricRows(attCode, period){
+  const [yyyy,mm]=period.split('-').map(Number);
+  const monthStart=new Date(Date.UTC(yyyy,mm-1,1));
+  const monthEnd  =new Date(Date.UTC(yyyy,mm,0));
+
+  // expand ±1 day to catch cross-midnight edges
+  const start=new Date(monthStart); start.setUTCDate(start.getUTCDate()-1);
+  const end  =new Date(monthEnd);  end.setUTCDate(end.getUTCDate()+1);
+
+  const fmt=d=>`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  const s=getSettings();
+  const baseParams={ APIKey:s.key, Key:s.key, FromDate:fmt(start), ToDate:fmt(end), Direction:'In-Out', EmployeeCode:attCode, employeeName:attCode };
+
+  try{ const maybeFiltered=await smartofficePaged(baseParams); return filterRowsByCode(maybeFiltered, attCode); }
+  catch(e){ console.warn('Filtered call failed; falling back to expanded scope:', e);
+    const monthAll=await smartofficePaged({...baseParams, EmployeeCode:'', employeeName:''});
+    return filterRowsByCode(monthAll, attCode);
+  }
+}
+
+/* Dates to render for a period — capped at "today" if it's the current month */
+function monthDates(period){
+  const [yyyy,mm]=period.split('-').map(Number);
+  const start = new Date(yyyy, mm-1, 1);       // local
+  let end     = new Date(yyyy, mm,   0);       // local month end
+
+  const now = new Date();
+  if (now.getFullYear()===yyyy && (now.getMonth()+1)===mm) {
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  const out=[];
+  for (let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) out.push(new Date(d));
+  return out;
+}
+
+/* Build per-day attendance (includes Absent/Weekoff & night shift pairing) */
+function computeAttendance(rows, emp, period){
+  const days = {}; // keyed by local YYYY-MM-DD
+  const shiftStart = emp.shift_start || '09:00';
+  const shiftEnd   = emp.shift_end   || '17:30';
+  const startM = fromHM(shiftStart), endM = fromHM(shiftEnd);
+  const crossMid = endM < startM; // night shift
+  const grace = +emp.grace || 0;
+
+  // Build local keys from raw punches
+  rows.forEach(r=>{
+    const dt = new Date(r.LogDate); // raw punch
+    let key  = ymdLocal(dt);        // local day
+    if (crossMid) {
+      const hm = dt.getHours()*60 + dt.getMinutes();
+      // punches after midnight but before noon belong to previous night
+      if (hm < 12*60) {
+        const prev = new Date(dt);
+        prev.setDate(prev.getDate()-1);
+        key = ymdLocal(prev);
+      }
+    }
+    const time = pad2(dt.getHours())+":"+pad2(dt.getMinutes());
+    const dir  = (String(r.PunchDirection||r.Punch||'').toLowerCase().includes('out'))?'out':'in';
+    (days[key] = days[key] || {ins:[], outs:[], devIn:[], devOut:[]});
+    if (dir==='in'){ days[key].ins.push(time);  days[key].devIn.push(r.SerialNumber||''); }
+    else           { days[key].outs.push(time); days[key].devOut.push(r.SerialNumber||''); }
+  });
+
+  // Emit rows ONLY for the selected month (capped to today)
+  const out=[];
+  const wos = Array.isArray(emp.weekoff)?emp.weekoff:[];
+  monthDates(period).forEach(d=>{
+    const key  = ymdLocal(d);
+    const data = days[key];
+    const wd   = dayName(d.getDay());
+    const isWO = wos.includes(wd);
+
+    if(!data){
+      out.push({ date:new Date(d), status:(isWO?'WO':'A'), IN:'', OUT:'', late:0, early:0, ot:0, devIn:'—', devOut:'—' });
+      return;
+    }
+
+    const IN  = data.ins.sort()[0]||'';
+    const OUT = data.outs.sort().slice(-1)[0]||'';
+    const inM = fromHM(IN), outM = fromHM(OUT);
+    let late=0, early=0, ot=0;
+
+    if(IN) late = Math.max(0, inM - (startM+grace));
+    if(OUT){
+      if(crossMid){ early = 0; ot = Math.max(0, outM - endM); }
+      else        { early = Math.max(0, (endM-grace) - outM); ot = Math.max(0, outM - endM); }
+    }
+
+    out.push({
+      date:new Date(d), status:'P',
+      IN, OUT, late, early, ot,
+      devIn:data.devIn[0]||'—', devOut:data.devOut.slice(-1)[0]||'—'
+    });
+  });
+
+  return out;
+}
+
+function calculateShiftAttendance(logs, shiftStart, shiftEnd) {
+  let attendance = [];
+  logs.forEach(day => {
+    let inLog = day.in_time;
+    let outLog = day.out_time;
+    if (shiftStart > shiftEnd) {
+      if (inLog && outLog && new Date(outLog) < new Date(inLog)) {
+        outLog = new Date(outLog);
+        outLog.setDate(outLog.getDate() + 1);
+      }
+    }
+    let status = "A";
+    if (inLog && outLog) status = "P";
+    else if (day.is_weekoff) status = "W";
+    attendance.push({
+      date: day.date,
+      status: status,
+      in: inLog || "--",
+      out: outLog || "--",
+      duration: inLog && outLog ? getDuration(inLog, outLog) : "00:00"
+    });
+  });
+  return attendance;
+}
+function getDuration(inTime, outTime) {
+  let diff = (new Date(outTime) - new Date(inTime)) / 60000;
+  let h = Math.floor(diff / 60);
+  let m = diff % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/* ---------- REALTIME AUTO-SYNC & REFRESH ---------- */
+let SYNC_TIMER=null; let EMP_QUEUE=[]; let LAST_HASH_BY_EMP={};
+const ATT_CACHE={}; // period -> emp_id -> items
+function buildEmpQueue(){EMP_QUEUE=Object.values(getMaster()).map(e=>e.emp_id);fillAttViewDropdown();}
+function fillAttViewDropdown(){
+  const sel=$('#attView'); if(!sel) return; const cur=sel.value;
+  const opts=['<option value="ALL">All Employees</option>'];
+  Object.values(getMaster()).sort((a,b)=>a.emp_id.localeCompare(b.emp_id)).forEach(r=>opts.push(`<option value="${r.emp_id}">${r.emp_id} — ${nameFromMaster(r)}</option>`));
+  sel.innerHTML=opts.join(''); if(cur) sel.value=cur;
+}
+function nextEmp(){if(EMP_QUEUE.length===0) buildEmpQueue(); const e=EMP_QUEUE.shift(); if(e) EMP_QUEUE.push(e); return e;}
+function restartRealtimeSync(){ if(SYNC_TIMER){clearInterval(SYNC_TIMER); SYNC_TIMER=null;} startRealtimeSync(); }
+function startRealtimeSync(){
+  const s=getSettings(); if(!s.realtime) return;
+  const iv=Math.max(1, s.interval||1)*1000;
+  if(!$('#attPeriod').value) $('#attPeriod').value=thisMonth();
+  if(SYNC_TIMER) clearInterval(SYNC_TIMER);
+  SYNC_TIMER=setInterval(tickSync, iv);
+  tickSync();
+}
+function getCache(period){ return (ATT_CACHE[period] ||= {}); }
+
+async function tickSync(){
+  const s=getSettings(); if(!s.realtime) return;
+  const m=getMaster(); const all=Object.values(m); if(all.length===0) return;
+  const period=$('#attPeriod').value.trim()||thisMonth();
+  const burst=Math.min(3, all.length);
+  for(let i=0;i<burst;i++){ const empId=nextEmp(); if(empId) await syncOne(empId, period); }
+  renderAttendanceFromCache(period);
+}
+
+/* Manual refresh without reloading */
+async function manualRefresh(){
+  const period=$('#attPeriod').value.trim()||thisMonth();
+  LAST_HASH_BY_EMP={}; // force refresh
+  const m=getMaster(); const all=Object.values(m);
+  for(const e of all){ await syncOne(e.emp_id, period); }
+  renderAttendanceFromCache(period);
+}
+$('#btnRefresh').addEventListener('click', manualRefresh);
+
+async function syncOne(empId, period){
+  try{
+    const m=getMaster(); const emp=m[empId]; if(!emp) return;
+    const code=emp.dev_code||emp.emp_id;
+    const rows=await fetchBiometricRows(code, period);
+    const lastIdx=rows.length? rows[rows.length-1].LogDate : '';
+    const hash=`${rows.length}|${lastIdx}`;
+    if(LAST_HASH_BY_EMP[empId]===hash && getCache(period)[emp.emp_id]) return;
+    LAST_HASH_BY_EMP[empId]=hash;
+    const items=computeAttendance(rows, emp, period).map(x=>({emp_id:emp.emp_id, code:code, name:nameFromMaster(emp), ...x}));
+    getCache(period)[emp.emp_id]=items;
+  }catch(e){ console.warn('Sync failed for', empId, e); }
+}
+
+/* ---------- Filtering, Pagination & Export ---------- */
+let ATT_PAGE = 1;
+let ATT_PAGE_SIZE = 10;
+
+function getFilteredAttRows(period){
+  const per=getCache(period);
+  const view=$('#attView')?.value||'ALL';
+  const needle=($('#attFilter')?.value||'').trim().toLowerCase();
+  let rows=[];
+  if(view==='ALL'){ Object.values(per).forEach(list=>rows.push(...list)); } else if(per[view]){ rows=per[view].slice(); }
+  if(needle){ rows=rows.filter(r=>r.emp_id.toLowerCase().includes(needle)||r.code.toLowerCase().includes(needle)||(r.name||'').toLowerCase().includes(needle)); }
+  rows.sort((a,b)=> a.emp_id.localeCompare(b.emp_id) || a.date-b.date );
+  return rows;
+}
+
+function renderAttendanceFromCache(period){
+  const body=$('#attBody'); const per=getCache(period);
+  const rows=getFilteredAttRows(period); const total=rows.length; const pages=Math.max(1,Math.ceil(total/ATT_PAGE_SIZE));
+  if(ATT_PAGE>pages) ATT_PAGE=pages;
+  const start=(ATT_PAGE-1)*ATT_PAGE_SIZE; const pageRows=rows.slice(start,start+ATT_PAGE_SIZE);
+  const meta=`Employees=${Object.keys(getMaster()).length}, Synced=${Object.keys(per).length}, Rows=${total}, Page ${ATT_PAGE}/${pages} — Source: Real-time (${LAST_ATT_METHOD})`;
+  $('#attExplain').textContent=meta; const info=$('#attPageInfo'); if(info) info.textContent=total?`Showing ${start+1}-${Math.min(start+ATT_PAGE_SIZE,total)} of ${total}`:'';
+  if(pageRows.length===0){ body.innerHTML='<tr><td colspan="12" class="muted">No logs yet for this period.</td></tr>'; return; }
+  body.innerHTML=pageRows.map(r=>`<tr>
+    <td>${r.emp_id}</td><td>${r.code}</td><td>${r.name}</td>
+    <td>${fmtDMY(r.date)}</td>
+    <td><span class="status-pill status-${r.status}">${r.status}</span></td>
+    <td class="kv">${r.IN||'—'}</td><td class="kv">${r.OUT||'—'}</td>
+    <td class="kv">${r.late}</td><td class="kv">${r.early}</td><td class="kv">${toHM(r.ot)}</td>
+    <td class="kv">${r.devIn}</td><td class="kv">${r.devOut}</td>
+  </tr>`).join('');
+}
+
+/* CSV helpers */
+function exportRowsToCSV(rows, filename){
+  const headers=["Emp ID","Attendance Code","Name","Date","Status","IN","OUT","Late (min)","Early (min)","OT (HH:MM)","Device IN","Device OUT"];
+  const escape=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const csv=[headers.join(',')].concat(rows.map(r=>[
+    r.emp_id,r.code,r.name,fmtDMY(r.date),r.status,r.IN||'',r.OUT||'',r.late,r.early,toHM(r.ot),r.devIn||'',r.devOut||''
+  ].map(escape).join(',')));
+  const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* Date-range filter */
+function filterRowsByRange(rows){
+  const from=$('#attFrom').value?new Date($('#attFrom').value):null;
+  const to=$('#attTo').value?new Date($('#attTo').value):null;
+  if(!from && !to) return rows;
+  return rows.filter(r=>{ const d=new Date(r.date); if(from && d<from) return false; if(to && d>to) return false; return true; });
+}
+
+/* Work Duration (SmartOffice-like) */
+function exportWorkDurationReport(empId, empName, rows, fromDate, toDate){
+  const start=new Date(fromDate), end=new Date(toDate);
+  const days=[]; for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) days.push(new Date(d));
+  function findRow(dt){ return rows.find(r=>r.date.toISOString().slice(0,10)===dt.toISOString().slice(0,10)); }
+  const headerTop=["IDEAL SHEET METAL STAMPINGS & PRESSINGS PVT. LTD."];
+  const headerTitle=["Monthly WorkDuration Report"];
+  const headerRange=[`${fmtDMY(start)} to ${fmtDMY(end)}`];
+  const empLine=[`Employee Code: ${empId}` , `Employee Name: ${empName}`];
+  const hdr=["",""].concat(days.map(d=>`${d.getDate()}-${d.toLocaleDateString('en-US',{weekday:'short'})}`));
+  const statusRow=["Status",""].concat(days.map(d=>{ const r=findRow(d); return r? r.status : "A"; }));
+  const inRow=["In Time",""].concat(days.map(d=>{ const r=findRow(d); return r&&r.IN?r.IN:"00:00"; }));
+  const outRow=["Out Time",""].concat(days.map(d=>{ const r=findRow(d); return r&&r.OUT?r.OUT:"00:00"; }));
+  const durRow=["T Duration",""].concat(days.map(d=>{
+    const r=findRow(d);
+    if(r && r.IN && r.OUT){
+      let mins = fromHM(r.OUT) - fromHM(r.IN);
+      if (mins < 0) mins += 24*60; // wrap across midnight
+      return toHM(mins);
+    }
+    return "00:00";
+  }));
+
+  const lines=[]; lines.push(headerTop.join(",")); lines.push(headerTitle.join(",")); lines.push(headerRange.join(",")); lines.push(empLine.join(",")); lines.push(hdr.join(",")); lines.push(statusRow.join(",")); lines.push(inRow.join(",")); lines.push(outRow.join(",")); lines.push(durRow.join(","));
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"})); a.download=`WorkDuration_${empId}_${fromDate}_to_${toDate}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* Controls */
+$('#attPageSize')?.addEventListener('change',e=>{ATT_PAGE_SIZE=parseInt(e.target.value,10)||10; ATT_PAGE=1; renderAttendanceFromCache($('#attPeriod').value||thisMonth());});
+$('#btnPrev')?.addEventListener('click',()=>{ if(ATT_PAGE>1){ ATT_PAGE--; renderAttendanceFromCache($('#attPeriod').value||thisMonth()); }});
+$('#btnNext')?.addEventListener('click',()=>{ ATT_PAGE++; renderAttendanceFromCache($('#attPeriod').value||thisMonth()); });
+$('#attView').addEventListener('change',()=>{ ATT_PAGE=1; renderAttendanceFromCache($('#attPeriod').value||thisMonth()); });
+$('#attFilter').addEventListener('input',()=>{ ATT_PAGE=1; renderAttendanceFromCache($('#attPeriod').value||thisMonth()); });
+$('#attPeriod').addEventListener('change',()=>{ LAST_HASH_BY_EMP={}; ATT_CACHE[$('#attPeriod').value]=ATT_CACHE[$('#attPeriod').value]||{}; ATT_PAGE=1; });
+
+$('#btnExportAtt')?.addEventListener('click',()=>{ const period=$('#attPeriod').value||thisMonth(); exportRowsToCSV(getFilteredAttRows(period),`attendance_${period}_filtered.csv`); });
+$('#btnExportPage')?.addEventListener('click',()=>{ const period=$('#attPeriod').value||thisMonth(); const all=getFilteredAttRows(period); const start=(ATT_PAGE-1)*ATT_PAGE_SIZE; exportRowsToCSV(all.slice(start,start+ATT_PAGE_SIZE),`attendance_${period}_page${ATT_PAGE}.csv`); });
+
+$('#btnExportRange')?.addEventListener('click',()=>{ const period=$('#attPeriod').value||thisMonth(); let rows=getFilteredAttRows(period); rows=filterRowsByRange(rows); if(!rows.length){alert('No rows in this range'); return;} exportRowsToCSV(rows,`attendance_${period}_${$('#attFrom').value||''}_${$('#attTo').value||''}.csv`); });
+$('#btnExportRangePage')?.addEventListener('click',()=>{ const period=$('#attPeriod').value||thisMonth(); let rows=getFilteredAttRows(period); rows=filterRowsByRange(rows); const start=(ATT_PAGE-1)*ATT_PAGE_SIZE; const page=rows.slice(start,start+ATT_PAGE_SIZE); if(!page.length){alert('No rows in this range/page'); return;} exportRowsToCSV(page,`attendance_${period}_page${ATT_PAGE}_${$('#attFrom').value||''}_${$('#attTo').value||''}.csv`); });
+$('#btnExportWorkDuration')?.addEventListener('click',()=>{
+  const period=$('#attPeriod').value||thisMonth();
+  const from=$('#attFrom').value, to=$('#attTo').value;
+  if(!from || !to){ alert("Select From Date and To Date first"); return; }
+  const empId=$('#attView').value; if(empId==="ALL"){ alert("Please select a single employee in View"); return; }
+  const emp=getMaster()[empId]; const empName=emp? nameFromMaster(emp):"";
+  let rows=getFilteredAttRows(period); rows=filterRowsByRange(rows); rows=rows.filter(r=>r.emp_id===empId);
+  exportWorkDurationReport(empId,empName,rows,from,to);
+});
+
+/* ---------------- Boot ---------------- */
+ensureDefaultUser(); renderSettings();
+(function initFromLast(){const last=read(KEY_LAST,{}); if(!$('#attPeriod').value) $('#attPeriod').value=thisMonth(); show((location.hash||'#emp').slice(1)); if(last.emp){$('#ctcEmp').value=last.emp;}})();
+renderEmpTable(); renderUserTable(); buildEmpQueue();
+showLoginIfNeeded(); if(read(KEY_SESS,null)){ $('#loginWrap').style.display='none'; startRealtimeSync(); }
+
+function renderUserTable(){const body=$('#tblUsers tbody');const users=read(KEY_USERS,{});body.innerHTML=Object.keys(users).map(u=>`<tr><td>${u}</td><td><button class="btn ghost" data-del="${u}">Delete</button></td></tr>`).join('')||`<tr><td colspan="2" class="muted">No users</td></tr>`;body.querySelectorAll('button[data-del]').forEach(b=>{b.onclick=()=>{const id=b.dataset.del;const u=read(KEY_USERS,{});delete u[id];store(KEY_USERS,u);renderUserTable();};});}
+</script>
+</body>
+</html>
