@@ -1,5 +1,4 @@
 // api/logs.js — Vercel Serverless Function (Node runtime)
-
 export default async function handler(req, res) {
   // --- CORS ---
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -7,29 +6,25 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  // --- Upstream device API (this route exists and requires POST) ---
+  // Upstream device API (expects POST)
   const API_URL =
     process.env.SMARTOFFICE_API ||
     "http://103.11.117.90:89/api/WebAPI/GetDeviceLogs"; // note: no /v1 or /v2
   const API_KEY = process.env.SMARTOFFICE_KEY || "441011112426";
 
-  // Merge params from query + body
+  // Merge query + body
   const query = req.query || {};
   let bodyIn = {};
   try {
     if (req.body && typeof req.body === "string") bodyIn = JSON.parse(req.body);
     else if (req.body && typeof req.body === "object") bodyIn = req.body;
-  } catch {
-    // ignore bad JSON; we'll fall back to empty object
-  }
+  } catch { /* ignore bad JSON */ }
 
   const merged = { APIKey: API_KEY, Key: API_KEY, ...query, ...bodyIn };
 
   try {
-    // Force POST upstream (device API doesn't support GET here)
-    const isJson = (req.headers["content-type"] || "").includes(
-      "application/json"
-    );
+    // Always POST upstream (endpoint doesn't support GET)
+    const isJson = (req.headers["content-type"] || "").includes("application/json");
 
     const upstream = await fetch(API_URL, {
       method: "POST",
@@ -45,7 +40,7 @@ export default async function handler(req, res) {
 
     const text = await upstream.text();
 
-    // Try JSON first; otherwise echo as text with upstream content-type
+    // Try JSON; otherwise echo raw text
     try {
       return res.status(upstream.status).json(JSON.parse(text));
     } catch {
