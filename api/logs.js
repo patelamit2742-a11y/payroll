@@ -1,61 +1,53 @@
-// api/logs.js — Vercel Serverless Function
+// api/logs.js — Vercel Serverless Function (Node runtime)
+
 export default async function handler(req, res) {
-  // Always allow CORS
+  // --- CORS ---
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.status(204).end();
 
-  // Preflight request
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
-  }
-
+  // --- Upstream device API (this route exists and requires POST) ---
   const API_URL =
     process.env.SMARTOFFICE_API ||
-    "http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs";
+    "http://103.11.117.90:89/api/WebAPI/GetDeviceLogs"; // note: no /v1 or /v2
   const API_KEY = process.env.SMARTOFFICE_KEY || "441011112426";
 
+  // Merge params from query + body
   const query = req.query || {};
   let bodyIn = {};
-
   try {
-    if (req.body && typeof req.body === "string") {
-      bodyIn = JSON.parse(req.body);
-    } else if (req.body && typeof req.body === "object") {
-      bodyIn = req.body;
-    }
-  } catch {}
+    if (req.body && typeof req.body === "string") bodyIn = JSON.parse(req.body);
+    else if (req.body && typeof req.body === "object") bodyIn = req.body;
+  } catch {
+    // ignore bad JSON; we'll fall back to empty object
+  }
 
   const merged = { APIKey: API_KEY, Key: API_KEY, ...query, ...bodyIn };
 
   try {
-    let upstream;
+    // Force POST upstream (device API doesn't support GET here)
+    const isJson = (req.headers["content-type"] || "").includes(
+      "application/json"
+    );
 
-    if (req.method === "POST") {
-      const isJson = (req.headers["content-type"] || "").includes(
-        "application/json"
-      );
-      upstream = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": isJson
-            ? "application/json"
-            : "application/x-www-form-urlencoded",
-        },
-        body: isJson
-          ? JSON.stringify(merged)
-          : new URLSearchParams(merged).toString(),
-      });
-    } else {
-      const qs = new URLSearchParams(merged).toString();
-      upstream = await fetch(`${API_URL}?${qs}`);
-    }
+    const upstream = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": isJson
+          ? "application/json"
+          : "application/x-www-form-urlencoded",
+      },
+      body: isJson
+        ? JSON.stringify(merged)
+        : new URLSearchParams(merged).toString(),
+    });
 
     const text = await upstream.text();
 
+    // Try JSON first; otherwise echo as text with upstream content-type
     try {
-      const json = JSON.parse(text);
-      return res.status(upstream.status).json(json);
+      return res.status(upstream.status).json(JSON.parse(text));
     } catch {
       res.setHeader(
         "Content-Type",
