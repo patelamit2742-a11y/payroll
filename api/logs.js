@@ -1,93 +1,87 @@
 // api/logs.js — Vercel Serverless Function (Node runtime)
 
 export default async function handler(req, res) {
-  // --- CORS ---
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  // --- Upstream SmartOffice API (prefer v2, fall back to v1) ---
+  // Upstream SmartOffice endpoint (make sure SMARTOFFICE_API points to /api/v2/WebAPI/GetDeviceLogs)
+  const RAW = (process.env.SMARTOFFICE_API ||
+               "http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs").replace(/\/+$/, "");
   const API_KEY = process.env.SMARTOFFICE_KEY || "441011112426";
-  const configured = process.env.SMARTOFFICE_API?.trim();
 
-  // If SMARTOFFICE_API is set, only try that (plus its trailing-slash variant).
-  // Otherwise, try v2 first, then v1, with and without trailing slashes.
-  const candidates = configured
-    ? [configured, configured.endsWith("/") ? configured : configured + "/"]
-    : [
-        "http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs",
-        "http://103.11.117.90:89/api/v2/WebAPI/GetDeviceLogs/",
-        "http://103.11.117.90:89/api/WebAPI/GetDeviceLogs",
-        "http://103.11.117.90:89/api/WebAPI/GetDeviceLogs/",
-      ];
-
-  // --- Read & normalize input ---
+  // Build input (query for GET, body for POST)
   let input = {};
   try {
     if (req.method === "GET") input = req.query || {};
     else if (typeof req.body === "string") input = JSON.parse(req.body || "{}");
     else input = req.body || {};
-  } catch {
-    input = {};
-  }
+  } catch { input = {}; }
 
-  // Support aliases (?from=...&to=...) and a single-day ?date=...
-  const normalized = { ...input };
-  if (normalized.from && !normalized.FromDate) normalized.FromDate = normalized.from;
-  if (normalized.to && !normalized.ToDate) normalized.ToDate = normalized.to;
-  if (normalized.date && !normalized.FromDate && !normalized.ToDate) {
-    normalized.FromDate = normalized.date;
-    normalized.ToDate = normalized.date;
-  }
-  delete normalized.from;
-  delete normalized.to;
-  delete normalized.date;
+  // Allow ?from=...&to=... aliases
+  const norm = { ...input };
+  if (norm.from && !norm.FromDate) norm.FromDate = norm.from;
+  if (norm.to && !norm.ToDate) norm.ToDate = norm.to;
+  delete norm.from; delete norm.to;
 
-  // Always include API key (both names to satisfy upstream quirks)
-  const payload = { APIKey: API_KEY, Key: API_KEY, ...normalized };
+  const params = { APIKey: API_KEY, Key: API_KEY, ...norm };
+  const qs = new URLSearchParams(params).toString();
 
-  const isJson =
-    (req.headers["content-type"] || "").toLowerCase().includes("application/json");
+  let upstream, usedMethod = "", usedUrl = "";
 
-  async function post(url) {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": isJson
-          ? "application/json"
-          : "application/x-www-form-urlencoded",
-      },
-      body: isJson
-        ? JSON.stringify(payload)
-        : new URLSearchParams(payload).toString(),
-    });
-    const text = await resp.text();
-    return { resp, text };
-  }
+  const tryGET = async (base) => {
+    usedMethod = "GET"; usedUrl = `${base}?${qs}`;
+    return fetch(usedUrl, { method: "GET", headers: { Accept: "application/json" } });
+  };
+
+  const tryPOST = async (base, asJson = false) => {
+    usedMethod = asJson ? "POST json" : "POST form";
+    usedUrl = base;
+    const headers = { Accept: "application/json" };
+    let body;
+    if (asJson) {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(params);
+    } else {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      body = new URLSearchParams(params).toString();
+    }
+    return fetch(base, { method: "POST", headers, body });
+  };
 
   try {
-    let last = null;
-
-    // Try candidates until one is not 404
-    for (const url of candidates) {
-      last = await post(url);
-      if (last.resp.status !== 404) break;
+    // Prefer GET (no slash), then GET (with slash), then POST fallbacks
+    upstream = await tryGET(RAW);
+    if (!upstream.ok && (upstream.status === 404 || upstream.status === 405)) {
+      let tmp = await tryGET(RAW + "/");
+      if (!tmp.ok) {
+        tmp = await tryPOST(RAW, false);
+        if (!tmp.ok) tmp = await tryPOST(RAW + "/", false);
+        if (!tmp.ok) tmp = await tryPOST(RAW, true);
+      }
+      upstream = tmp;
     }
-
-    const { resp, text } = last;
-
-    // Try JSON first; otherwise echo as text with upstream content-type
-    try {
-      return res.status(resp.status).json(JSON.parse(text));
-    } catch {
-      res.setHeader(
-        "Content-Type",
-        resp.headers.get("content-type") || "text/plain"
-      );
-      return res.status(resp.status).send(text);
+  } catch {
+    // Network issue on GET → try POSTs
+    try { upstream = await tryPOST(RAW, false); }
+    catch {
+      try { upstream = await tryPOST(RAW + "/", false); }
+      catch (e3) { return res.status(502).json({ error: "Upstream error", detail: e3.message }); }
     }
-  } catch (e) {
-    return res.status(500).json({ error: e.message || "Proxy error" });
+  }
+
+  // Debug headers so you can see what was used
+  res.setHeader("x-upstream-url", usedUrl);
+  res.setHeader("x-upstream-method", usedMethod);
+  res.setHeader("x-upstream-status", String(upstream.status));
+
+  const text = await upstream.text();
+  try {
+    return res.status(upstream.status).json(JSON.parse(text));
+  } catch {
+    res.setHeader("Content-Type", upstream.headers.get("content-type") || "text/plain");
+    return res.status(upstream.status).send(text);
   }
 }
